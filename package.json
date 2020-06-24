@@ -4,16 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "parse": "node parse.js",
+    "start:api": "nodemon index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bitcoin-core": "^3.0.0",
+    "boom": "^7.3.0",
     "config": "^3.3.1",
     "hex2dec": "^1.1.2",
     "knex": "^0.21.1",
+    "koa": "^2.13.0",
+    "koa-router": "^9.0.1",
+    "moment": "^2.27.0",
     "mysql": "^2.18.1",
+    "node-json-transform": "^1.1.0",
+    "nodemon": "^2.0.4",
     "ora": "^4.0.4"
   }
 }

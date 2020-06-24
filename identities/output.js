@@ -1,32 +1,32 @@
+const _ = require('lodash');
 const config = require('config');
 const client = require('../services/bitcoin-core');
+const tranformer = require('./output-transformer');
 const db = require('../services/db');
 const Address = require('./address');
 
-const createOutput = ({
+const createOutput = function ({
     hash,
-    transactionIndex,
-    transactionId,
-    scriptPubKeyType,
+    transactionindex,
+    transactionid,
+    scriptpubkeytype,
     value
-} = {}) => {
+}) {
+    // fields not in the db
+    const fieldsToInsert = _.omit(...arguments, ['hash'])
 
     if (value === undefined) {
         throw new Error('value is required');
     }
-
-    if (scriptPubKeyType === undefined) {
-        throw new Error('scriptPubKeyType is required');
+    if (scriptpubkeytype === undefined) {
+        throw new Error('scriptpubkeytype is required');
     }
-
-    if (transactionId === undefined) {
-        throw new Error('transactionId is required');
+    if (transactionid === undefined) {
+        throw new Error('transactionid is required');
     }
-
-    if (transactionIndex === undefined) {
-        throw new Error('transactionIndex is required');
+    if (transactionindex === undefined) {
+        throw new Error('transactionindex is required');
     }
-
     if (!hash) {
         throw new Error('hash is required');
     }
@@ -35,23 +35,12 @@ const createOutput = ({
      * Return object where all sets update the database
      */
     return Object.freeze({
-        getHash: () => hash,
-        getValue: () => value,
-        getTransactionIndex: () => transactionIndex,
-        setSpentInTransactionId: () => {
-
-        },
+        transform: async () => await tranformer.transform(...arguments),
         addToDb: async () => {
-            const scriptPubKeyTypes = config.get('scriptPubKeyTypes');
             const address = await Address.create(hash);
             const addressid = await address.getId();
-            const [outputid] = await db('output').insert({
-                addressid,
-                value,
-                transactionid: transactionId,
-                transactionindex: transactionIndex,
-                scriptpubkeytype: scriptPubKeyTypes[scriptPubKeyType]
-            });
+
+            const [outputid] = await db('output').insert({ ...fieldsToInsert, addressid });
         }
     });
 }
@@ -64,7 +53,7 @@ const obtainAddressFromOutput = async (output) => {
         // https://www.reddit.com/r/Bitcoin/comments/fr1hn4/scriptpubkey_of_type_pubkey_doesnt_reference/flxqt44/
         const pubkey = output.scriptPubKey.asm.split(' ')[0];
         try {
-            const {checksum} = await client.getDescriptorInfo({
+            const { checksum } = await client.getDescriptorInfo({
                 descriptor: `pkh(${pubkey})`
             });
 
@@ -76,15 +65,15 @@ const obtainAddressFromOutput = async (output) => {
             process.exit(0);
         }
 
-    } else if (type==='scripthash'){
+    } else if (type === 'scripthash') {
         [address] = output.scriptPubKey.addresses;
     } else if (type === 'pubkeyhash') {
         [address] = output.scriptPubKey.addresses;
-    } else if (type === 'witness_v0_keyhash'){
+    } else if (type === 'witness_v0_keyhash') {
         [address] = output.scriptPubKey.addresses;
-    } else if (type === 'witness_v0_scripthash'){
+    } else if (type === 'witness_v0_scripthash') {
         [address] = output.scriptPubKey.addresses;
-    } else if (type === 'nulldata'){
+    } else if (type === 'nulldata') {
         address = 'OP_RETURN';
     } else if (type === 'nonstandard') {
         // determine how I want to address this with the api
@@ -100,18 +89,21 @@ const obtainAddressFromOutput = async (output) => {
 
 module.exports = {
     obtainAddressFromOutput,
-    spend: async(id, inputId) => {
+    spend: async (id, inputId) => {
         await db('output').update({
             spentInInputId: inputId,
-        }).where({id});
+        }).where({ id });
     },
-    create: async (output, transactionId) => {
+    create: async (output, transactionid) => {
+        const scriptPubKeyTypes = config.get('scriptPubKeyTypes');
         const address = await obtainAddressFromOutput(output);
+
         return createOutput({
             value: output.value * config.get('BTCSATOSHI_MULTIPLIER'),
             hash: address,
-            transactionIndex: output.n,
-            transactionId,
-            scriptPubKeyType:output.scriptPubKey.type});
+            transactionindex: output.n,
+            transactionid,
+            scriptpubkeytype: scriptPubKeyTypes[output.scriptPubKey.type]
+        });
     }
 }

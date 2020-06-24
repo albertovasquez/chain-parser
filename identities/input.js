@@ -1,18 +1,23 @@
 const db = require('../services/db');
 const Output = require('./output');
+const tranformer = require('./input-transformer');
 
-const createInput = ({
-    addressId,
-    transactionId,
+const createInput = function ({
+    addressid,
+    transactionid,
     spentFromOutputId,
-} = {}) => {
+    sequence,
+}) {
+    if (sequence === undefined) {
+        throw new Error('sequence is required');
+    }
     if (spentFromOutputId === undefined) {
         throw new Error('spentFromTransactionId is required');
     }
-    if (addressId === undefined) {
-        throw new Error('addressId is required');
+    if (addressid === undefined) {
+        throw new Error('addressid is required');
     }
-    if (transactionId === undefined) {
+    if (transactionid === undefined) {
         throw new Error('transactionid is required');
     }
 
@@ -20,15 +25,12 @@ const createInput = ({
      * Return object where all sets update the database
     */
     return Object.freeze({
+        transform: async () => await tranformer.transform(...arguments),
         addToDb: async () => {
-            const [inputid] = await db('input').insert({
-                spentFromOutputId,
-                addressid: addressId,
-                transactionid: transactionId,
-            });
+            const [inputid] = await db('input').insert(...arguments);
 
             // Set the spent in id (inputid)
-            await Output.spend( spentFromOutputId, inputid);
+            await Output.spend(spentFromOutputId, inputid);
         }
     });
 }
@@ -45,13 +47,13 @@ const getUTXODetails = async (txid, vout) => {
     // retrieve old transaction to pull the utxo
     try {
         [utxoDetails] = await db.select('output.id as id', 'address.hash as addressHash', 'address.id as addressId')
-        .from('address')
-        .leftJoin('output', 'output.addressid', 'address.id')
-        .leftJoin('transaction', 'transaction.id', 'output.transactionid')
-        .where({
-            'transaction.hash': txid,
-            'output.transactionindex': vout,
-        });
+            .from('address')
+            .leftJoin('output', 'output.addressid', 'address.id')
+            .leftJoin('transaction', 'transaction.id', 'output.transactionid')
+            .where({
+                'transaction.hash': txid,
+                'output.transactionindex': vout,
+            });
     } catch (ex) {
         console.log(ex.message, 'looking for address if from output relationship');
         process.exit(0);
@@ -61,20 +63,26 @@ const getUTXODetails = async (txid, vout) => {
 }
 
 module.exports = {
-    create: async ({txid, vout }, transactionId) => {
-        let utxo = null;
+    create: async ({ txid, vout, coinbase, sequence }, transactionid) => {
+        let utxo = {
+            id: null,
+            addressId: null,
+        };
 
-        try {
-            utxo = await getUTXODetails(txid, vout);
-        } catch (ex) {
-            console.log(ex.message, 'input create');
-            process.exit(0);
+        if (!coinbase) {
+            try {
+                utxo = await getUTXODetails(txid, vout);
+            } catch (ex) {
+                console.log(ex.message, 'input create');
+                process.exit(0);
+            }
         }
 
         return createInput({
             spentFromOutputId: utxo.id,
-            addressId: utxo.addressId,
-            transactionId,
+            addressid: utxo.addressId,
+            transactionid,
+            sequence,
         })
     }
 }

@@ -1,13 +1,14 @@
+const _ = require('lodash');
 const client = require('../services/bitcoin-core');
 const Transaction = require('./transaction');
+const tranformer = require('./block-transformer');
 const db = require('../services/db');
-const converter = require('hex2dec');
 
-const createBlock = ({
+const createBlock = function ({
     height,
-    blockHash,
-    rawBlock,
-    blockTime,
+    hash,
+    transactions,
+    blocktime,
     version,
     nonce,
     difficulty,
@@ -15,7 +16,10 @@ const createBlock = ({
     bits,
     size,
     weight
-} = {}) => {
+}) {
+    // fields to insert into the database
+    const fieldsToInsert = _.omit(...arguments, ['transactions']);
+
     if (weight === undefined) {
         throw new Error('weight is required');
     }
@@ -40,27 +44,59 @@ const createBlock = ({
     if (version === undefined) {
         throw new Error('version is required');
     }
-    if (blockTime === undefined) {
+    if (blocktime === undefined) {
         throw new Error('blockTime is required');
     }
-    if (blockHash === undefined) {
+    if (hash === undefined) {
         throw new Error('hash is required');
     }
-    if (rawBlock === undefined) {
-        throw new Error('block is required');
+    if (transactions === undefined) {
+        throw new Error('transactions is required');
     }
 
+    /**
+     * Gets the next or previous hash
+     */
+    const getPeerHash = async ({
+        previous = true,
+    }) => {
+        let hash = null;
+        const block = await db('block').where({ height: height + (previous ? -1 : 1) }).first();
+        if (block) {
+            hash = block.hash;
+        }
+        return hash;
+    };
+
     return {
-        getHeight: () => height,
+        transform: async ({
+            parseTx = false,
+            parseNextBlock = false,
+            parsePreviousBlock = false } = {}) => {
+
+            const transformArray = await tranformer.transform(
+                Object.assign(...arguments, {
+                    nextblock: await getPeerHash({ previous: false }),
+                    previousblock: await getPeerHash({ previous: true })
+                })
+            );
+
+            return transformArray;
+        },
         removeFromDb: async () => {
             // If we don't have the block return
-            const block = await db('block').where({ hash: blockHash })
-            if (!block.length) return;
+            const block = await db('block').where({ hash }).first();
+            if (!block) return;
 
             // remove all transactions in block
-            for (const hash of rawBlock.tx) {
+            for (const txHash of transactions) {
                 try {
-                    let trx = await Transaction.createFromHash(hash, blockHash);
+                    let trx = await Transaction.create({
+                        txHash,
+                        blockHash: hash,
+                        blockHeight: height,
+                    });
+
                     await trx.removeFromDb();
                 } catch (ex) {
                     throw ex;
@@ -69,26 +105,20 @@ const createBlock = ({
             }
 
             // remove block
-            await db('block').where({ hash: blockHash }).del();
+            await db('block').where({ hash }).del();
         },
         parseToDb: async () => {
-            const [blockid] = await db('block').insert({
-                height,
-                hash: blockHash,
-                blocktime: blockTime,
-                nonce,
-                bits,
-                difficulty,
-                version,
-                merkleroot,
-                weight,
-                size,
-            });
+            // remove transactions from arguments list
+            await db('block').insert(fieldsToInsert);
 
-            for (const hash of rawBlock.tx) {
+            for (const txHash of transactions) {
                 try {
-                    let trx = await Transaction.createFromHash(hash, blockHash);
-                    await trx.addToDb({ blockid });
+                    let trx = await Transaction.create({
+                        txHash,
+                        blockHash: hash,
+                        blockHeight: height,
+                    });
+                    await trx.addToDb();
                 } catch (ex) {
                     throw ex;
                 }
@@ -98,6 +128,13 @@ const createBlock = ({
 }
 
 module.exports = {
+    getByHash: async (hash) => {
+        const rawBlock = await db('block').where({ hash: hash }).first();
+        const transactions = await db('transaction').where({ blockid: rawBlock.height });
+        rawBlock.transactions = transactions.map(tx => tx.hash);
+
+        return await createBlock(Object.assign({}, rawBlock));
+    },
     createFromHeight: async (height) => {
         let hash = null;
         let rawBlock = null;
@@ -105,8 +142,6 @@ module.exports = {
         try {
             hash = await client.getBlockHash(height);
             rawBlock = await client.getBlock(hash);
-            // console.log(rawBlock);
-            // converter.hexToDec(rawBlock.bits)
         } catch (ex) {
             throw ex;
         }
@@ -114,12 +149,12 @@ module.exports = {
         return createBlock({
             height,
             bits: rawBlock.bits,
-            blockHash: hash,
-            rawBlock,
+            hash,
+            transactions: rawBlock.tx,
             weight: rawBlock.weight,
             size: rawBlock.size,
             merkleroot: rawBlock.merkleroot,
-            blockTime: rawBlock.time,
+            blocktime: rawBlock.time,
             nonce: rawBlock.nonce,
             difficulty: rawBlock.difficulty,
             version: rawBlock.difficulty,
