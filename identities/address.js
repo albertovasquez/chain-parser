@@ -9,17 +9,16 @@ const createAddress = ({
     }
 
     return Object.freeze({
-        getHash: () => hash,
         getId: async () => {
             if (id !== undefined) return id;
 
             // look up address to see if we already have the hash
             // if not add the address and use address.id
-            const [address] = await db.select('id').from('address').where({hash});
+            const [address] = await db.select('id').from('address').where({ hash });
             if (address) {
                 id = address.id;
             } else {
-                [id] = await db('address').insert({hash});
+                [id] = await db('address').insert({ hash });
             }
 
             return id;
@@ -29,6 +28,6 @@ const createAddress = ({
 
 module.exports = {
     create: (hash) => {
-        return createAddress({hash});
+        return createAddress({ hash });
     }
 }

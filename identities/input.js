@@ -1,13 +1,18 @@
 const db = require('../services/db');
 const Output = require('./output');
-const tranformer = require('./input-transformer');
+const Witness = require('./witness');
+const _ = require('lodash');
 
 const createInput = function ({
     addressid,
     transactionid,
     spentFromOutputId,
     sequence,
+    signatureHex,
+    witnesses = []
 }) {
+    const fieldsToInsert = _.omit(...arguments, ['witnesses']);
+
     if (sequence === undefined) {
         throw new Error('sequence is required');
     }
@@ -20,14 +25,28 @@ const createInput = function ({
     if (transactionid === undefined) {
         throw new Error('transactionid is required');
     }
+    if (signatureHex === undefined) {
+        throw new Error('signatureHex is required');
+    }
 
     /**
      * Return object where all sets update the database
     */
     return Object.freeze({
-        transform: async () => await tranformer.transform(...arguments),
         addToDb: async () => {
-            const [inputid] = await db('input').insert(...arguments);
+            // console.log(fieldsToInsert);
+            const [inputid] = await db('input').insert(fieldsToInsert);
+            // console.log(witnesses);
+            for (const witness of witnesses) {
+                if (witness === '') continue;
+
+                try {
+                    const newWitness = await Witness.create({ witness, inputid, transactionid });
+                    await newWitness.addToDb();
+                } catch (ex) {
+                    throw ex;
+                }
+            }
 
             // Set the spent in id (inputid)
             await Output.spend(spentFromOutputId, inputid);
@@ -63,7 +82,14 @@ const getUTXODetails = async (txid, vout) => {
 }
 
 module.exports = {
-    create: async ({ txid, vout, coinbase, sequence }, transactionid) => {
+    create: async ({
+        txid,
+        vout,
+        coinbase,
+        sequence,
+        txinwitness = [],
+        scriptSig = { hex: null } }, transactionid) => {
+
         let utxo = {
             id: null,
             addressId: null,
@@ -72,6 +98,16 @@ module.exports = {
         if (!coinbase) {
             try {
                 utxo = await getUTXODetails(txid, vout);
+                if (!utxo) {
+                    // most likely because we are starting
+                    // on a block later than expected - 
+                    // we need to index in order
+                    // console.log('could not find a utxo: creating default');
+                    utxo = {
+                        id: null,
+                        addressId: null
+                    };
+                }
             } catch (ex) {
                 console.log(ex.message, 'input create');
                 process.exit(0);
@@ -83,6 +119,8 @@ module.exports = {
             addressid: utxo.addressId,
             transactionid,
             sequence,
+            witnesses: txinwitness,
+            signatureHex: scriptSig.hex
         })
     }
 }

@@ -10,11 +10,15 @@ const createOutput = function ({
     transactionindex,
     transactionid,
     scriptpubkeytype,
+    hex,
     value
 }) {
     // fields not in the db
     const fieldsToInsert = _.omit(...arguments, ['hash'])
 
+    if (hex === undefined) {
+        throw new Error('hex is required');
+    }
     if (value === undefined) {
         throw new Error('value is required');
     }
@@ -35,7 +39,6 @@ const createOutput = function ({
      * Return object where all sets update the database
      */
     return Object.freeze({
-        transform: async () => await tranformer.transform(...arguments),
         addToDb: async () => {
             const address = await Address.create(hash);
             const addressid = await address.getId();
@@ -101,6 +104,7 @@ module.exports = {
         return createOutput({
             value: output.value * config.get('BTCSATOSHI_MULTIPLIER'),
             hash: address,
+            hex: output.scriptPubKey.hex,
             transactionindex: output.n,
             transactionid,
             scriptpubkeytype: scriptPubKeyTypes[output.scriptPubKey.type]

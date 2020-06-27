@@ -4,7 +4,7 @@ const Transaction = require('./transaction');
 const tranformer = require('./block-transformer');
 const db = require('../services/db');
 
-const createBlock = function ({
+const createBlock = async function ({
     height,
     hash,
     transactions,
@@ -18,8 +18,7 @@ const createBlock = function ({
     weight
 }) {
     // fields to insert into the database
-    const fieldsToInsert = _.omit(...arguments, ['transactions']);
-
+    const fieldsToInsert = _.omit(...arguments, ['transactions', 'id']);
     if (weight === undefined) {
         throw new Error('weight is required');
     }
@@ -69,6 +68,7 @@ const createBlock = function ({
     };
 
     return {
+        getHash: () => hash,
         transform: async ({
             parseTx = false,
             parseNextBlock = false,
@@ -146,7 +146,7 @@ module.exports = {
             throw ex;
         }
 
-        return createBlock({
+        return await createBlock({
             height,
             bits: rawBlock.bits,
             hash,
@@ -159,5 +159,5 @@ module.exports = {
             difficulty: rawBlock.difficulty,
             version: rawBlock.difficulty,
         });
-    },
+    }
 }

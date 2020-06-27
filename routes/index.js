@@ -13,6 +13,7 @@ router.get('/api/block/:hash', async ctx => {
 router.get('/api/tx/:hash', async ctx => {
     const txHash = ctx.params.hash;
     const transaction = await Transaction.getByHash(txHash);
+
     ctx.body = await transaction.transform();
 });
 

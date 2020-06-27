@@ -1,25 +1,16 @@
 const client = require('./services/bitcoin-core');
 const Block = require('./identities/block');
 const envUtil = require('./utilities/env');
-const ora = require('ora');
-const spinner = ora('Initializing ...').start();
+const spinner = require('./services/spinner');
 
 // Command line args
 //-block=<blockheight>
 //-stopat=<blockheight>
 
-const buildSpinnerText = (blockHeight, bestHeight, stopAt, doNotStop) => {
-    let toHeight = bestHeight;
-    if (!doNotStop) {
-        toHeight = stopAt - 1;
-    }
-
-    return `Processing ${blockHeight} to ${toHeight}`;
-}
-
 // If we pass block as a param we want to start at that block
 // otherwise start at latest height (and keep running)
 (async () => {
+    spinner.initalize();
     let startBlockHeight = await client.getBlockCount();
     let blockHeight = await envUtil.getStartBlockHeight(startBlockHeight);
     let stopAt = await envUtil.getStopAt();
@@ -33,7 +24,7 @@ const buildSpinnerText = (blockHeight, bestHeight, stopAt, doNotStop) => {
     // or just end the process and log for later debugging
     const ExceptionHandler = (ex) => {
         if (ex.message === 'ESOCKETTIMEDOUT') {
-            spinner.text = 'Waiting on bitcoin node ...'
+            spinner.text = 'Waiting on bitcoin node ...';
             setTimeout(checkIfIShouldDoWork, 5000);
             return;
         }
@@ -52,14 +43,14 @@ const buildSpinnerText = (blockHeight, bestHeight, stopAt, doNotStop) => {
 
         if (blockHeight <= bestHeight) {
             // console.log(`working on block with height ${blockHeight} with latest height being ${bestHeight}`);
-            spinner.text = buildSpinnerText(blockHeight, bestHeight, stopAt, doNotStop);
+            spinner.setBlockText(blockHeight, bestHeight, stopAt, doNotStop);
 
             try {
                 const block = await Block.createFromHeight(blockHeight);
                 await block.removeFromDb();
                 await block.parseToDb();
                 blockHeight = blockHeight + 1;
-            } catch(ex) {
+            } catch (ex) {
                 return ExceptionHandler(ex);
             }
         }

@@ -5,6 +5,7 @@ const db = require('./services/db');
     await db('block').truncate();
     await db('input').truncate();
     await db('output').truncate();
+    await db('witness').truncate();
     await db('transaction').truncate();
     process.exit(0);
 })();
