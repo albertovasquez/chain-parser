@@ -84,6 +84,8 @@ const createTransaction = function ({
                         'transaction.transactiontime as utxo_transaction_time',
                         'transaction.blockid as utxo_transaction_block_height',
                         'output.value as value',
+                        'output.hex as utxo_transaction_script_hex',
+                        'output.scriptpubkeytype as utxo_transaction_script_type',
                         'output.transactionindex as utxo_transaction_index'
                     )
                         .from('output')
@@ -125,7 +127,7 @@ const createTransaction = function ({
                     }, output);
 
                     newOutput.transaction = _.omit(...arguments, ['inputs', 'outputs']);
-                    newOutput.recipient = (await db('address').select('hash').where({ id: output.addressid }).first()).recipient;
+                    newOutput.recipient = (await db('address').select('hash').where({ id: output.addressid }).first()).hash;
                     newOutput.witnesses = (await db('witness').select('witness').where({ inputid: output.spentInInputId })).map(x => x.witness);;
                     newOutputs.push(newOutput);
                 } catch (ex) {
