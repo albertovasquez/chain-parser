@@ -67,8 +67,9 @@ const obtainAddressFromOutput = async (output) => {
             console.log(ex.message, 'obtainAddressFromOutput');
             process.exit(0);
         }
-
     } else if (type === 'scripthash') {
+        [address] = output.scriptPubKey.addresses;
+    } else if (type === 'multisig') {
         [address] = output.scriptPubKey.addresses;
     } else if (type === 'pubkeyhash') {
         [address] = output.scriptPubKey.addresses;
@@ -80,7 +81,7 @@ const obtainAddressFromOutput = async (output) => {
         address = 'OP_RETURN';
     } else if (type === 'nonstandard') {
         // determine how I want to address this with the api
-        address = 'BITSBID_REVISIT_NONSTANDARD'
+        address = 'Unable to decode'
     } else {
         //TODO add logger to handle address types I'm not familiar with
         console.log(output, 'unknown output scriptpubkey type');

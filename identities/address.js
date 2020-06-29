@@ -1,5 +1,11 @@
 const db = require('../services/db');
 
+// here are currently three address formats in use:
+
+// P2PKH which begin with the number 1, eg: 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2.
+// P2SH type starting with the number 3, eg: 3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy.
+// Bech32 type starting with bc1, eg: bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq.
+
 const createAddress = ({
     hash,
     id,

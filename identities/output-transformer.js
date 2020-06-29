@@ -24,7 +24,6 @@ const map = {
         spending_signature_hex: "spending_siguature_hex",
         spending_witness: "witnesses",
         spending_sequence: "spending_sequence",
-        testing: ""
     },
     each: item => {
         // set the script pub key type
@@ -40,8 +39,8 @@ const map = {
             type: item.script_type
         }).decodeHex();
 
-        item.script_asm = decodedLockingScript.asm;
-        item.script_hex = decodedLockingScript.hex;
+        item.script_asm = decodedLockingScript.asm.trim();
+        item.script_hex = decodedLockingScript.hex.trim();
         item.is_spent = (!item.spending_date_time_ts) ? false : true;
         item.date_time = moment.unix(item.date_time_ts);
         item.spending_date_time = (!item.spending_date_time_ts) ? null : moment.unix(item.spending_date_time_ts);

@@ -39,8 +39,8 @@ const map = {
             type: item.utxo_transaction_script_type
         }).decodeHex();
 
-        item.utxo_transaction_script_asm = decodedLockingScript.asm;
-        item.utxo_transaction_script_hex = decodedLockingScript.hex;
+        item.utxo_transaction_script_asm = decodedLockingScript.asm.trim();
+        item.utxo_transaction_script_hex = decodedLockingScript.hex.trim();
     }
 };
 
