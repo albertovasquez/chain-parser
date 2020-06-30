@@ -1,7 +1,6 @@
 const _ = require('lodash');
 const config = require('config');
 const client = require('../services/bitcoin-core');
-const tranformer = require('./output-transformer');
 const db = require('../services/db');
 const Address = require('./address');
 

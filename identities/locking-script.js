@@ -40,8 +40,7 @@ const decodePubKeyHashFromHex = (hex) => {
         lengthElement: 2
     });
 
-    return `${pubkeyscript.startOpCodes.join(' ')} ${pubkeyscript.pubKey} ${pubkeyscript.endOpCodes.join(' ')} `;
-    return hex;
+    return `${pubkeyscript.startOpCodes.join(' ')} ${pubkeyscript.pubKey} ${pubkeyscript.endOpCodes.join(' ')}`;
 }
 
 const createLockingScript = ({
