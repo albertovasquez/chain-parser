@@ -128,6 +128,13 @@ const createBlock = async function ({
 }
 
 module.exports = {
+    getByHeight: async (height) => {
+        const rawBlock = await db('block').where({ height }).first();
+        const transactions = await db('transaction').where({ blockid: rawBlock.height });
+        rawBlock.transactions = transactions.map(tx => tx.hash);
+
+        return await createBlock(Object.assign({}, rawBlock));
+    },
     getByHash: async (hash) => {
         const rawBlock = await db('block').where({ hash: hash }).first();
         const transactions = await db('transaction').where({ blockid: rawBlock.height });

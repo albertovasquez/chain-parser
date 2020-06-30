@@ -5,7 +5,12 @@ const router = new Router;
 
 router.get('/api/block/:hash', async ctx => {
     const blockHash = ctx.params.hash;
-    const block = await Block.getByHash(blockHash);
+    let block = null;
+    if (blockHash.length < 64) {
+        block = await Block.getByHeight(blockHash);
+    } else {
+        block = await Block.getByHash(blockHash);
+    }
 
     ctx.body = await block.transform();
 });
